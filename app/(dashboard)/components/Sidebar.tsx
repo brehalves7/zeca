@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -12,203 +12,128 @@ import {
   Zap,
   MessageSquare,
   X,
-} from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
-  { href: '/dashboard/home', label: 'Visão Geral', icon: LayoutDashboard },
-  { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingCart },
-  { href: '/dashboard/produtos', label: 'Produtos', icon: Package },
-  { href: '/dashboard/configuracoes', label: 'Configurações', icon: Settings },
-]
+  { href: "/dashboard/home", label: "Visão Geral", icon: LayoutDashboard },
+  { href: "/dashboard/pedidos", label: "Pedidos", icon: ShoppingCart },
+  { href: "/dashboard/produtos", label: "Produtos", icon: Package },
+  { href: "/dashboard/configuracoes", label: "Configurações", icon: Settings },
+];
 
 interface SidebarProps {
-  isMobile?: boolean
-  onClose?: () => void
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
 export default function Sidebar({ isMobile, onClose }: SidebarProps) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const supabase = createClient()
+  const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
 
   async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
   }
 
   const content = (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        padding: '20px 12px',
-      }}
-    >
-      {/* Logo */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 12px',
-          marginBottom: '32px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-              borderRadius: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(34,197,94,0.3)',
-              flexShrink: 0,
-            }}
-          >
-            <Zap size={18} color="#020617" fill="#020617" />
+    <div className="flex flex-col h-full p-6 bg-[#101216] md:bg-transparent">
+      {/* Header Logo */}
+      <div className="flex items-center justify-between px-3 mb-10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.2)] shrink-0">
+            <Zap size={16} className="text-[#0F1115] fill-current" />
           </div>
-          <span style={{ fontSize: '20px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.3px' }}>
-            Zeca<span style={{ color: '#22c55e' }}>.ai</span>
+          <span className="text-lg font-extrabold text-white tracking-tight">
+            Zeca<span className="text-emerald-500">.ai</span>
           </span>
         </div>
+
         {isMobile && (
-          <button 
+          <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+            className="p-1 text-gray-500 hover:text-white transition-colors"
           >
             <X size={20} />
           </button>
         )}
       </div>
 
-      {/* Nav */}
-      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {/* Navegação Principal */}
+      <nav className="flex-1 flex flex-col gap-1.5">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          const Icon = item.icon
+          const isActive =
+            pathname === item.href || pathname.startsWith(item.href + "/");
+          const Icon = item.icon;
 
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onClose}
-              id={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-              style={{ textDecoration: 'none', position: 'relative' }}
+              className="group relative no-underline"
             >
               {isActive && (
                 <motion.div
                   layoutId="activeNav"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'rgba(34,197,94,0.1)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(34,197,94,0.2)',
-                  }}
-                  transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                  className="absolute inset-0 bg-white/5 rounded-xl border border-white/5"
+                  transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
                 />
               )}
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  color: isActive ? '#22c55e' : '#64748b',
-                  fontWeight: isActive ? '600' : '500',
-                  fontSize: '14px',
-                  transition: 'color 0.2s ease',
-                  position: 'relative',
-                  zIndex: 1,
-                }}
+                className={`
+                flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 relative z-10
+                ${isActive ? "text-white font-semibold" : "text-gray-400 font-medium hover:text-gray-200"}
+              `}
               >
-                <Icon size={18} />
+                <Icon
+                  size={18}
+                  strokeWidth={isActive ? 2.5 : 2}
+                  className={
+                    isActive
+                      ? "text-emerald-500"
+                      : "group-hover:text-emerald-400"
+                  }
+                />
                 {item.label}
               </div>
             </Link>
-          )
+          );
         })}
       </nav>
 
-      {/* WhatsApp status */}
-      <div
-        style={{
-          padding: '12px 14px',
-          background: 'rgba(34,197,94,0.05)',
-          border: '1px solid rgba(34,197,94,0.15)',
-          borderRadius: '12px',
-          marginBottom: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-        }}
-      >
-        <MessageSquare size={16} color="#22c55e" />
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: '12px', fontWeight: '600', color: '#22c55e' }}>WhatsApp Bot</p>
-          <p style={{ fontSize: '11px', color: '#64748b' }}>Online</p>
+      {/* Widget de Status do Bot */}
+      <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl mb-4 flex items-center gap-3">
+        <div className="relative">
+          <MessageSquare size={18} className="text-emerald-500" />
+          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10B981]" />
         </div>
-        <div style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%', boxShadow: '0 0 6px #22c55e' }} />
+        <div className="flex flex-col">
+          <p className="text-[11px] font-bold text-white uppercase tracking-wider">
+            Bot Ativo
+          </p>
+          <p className="text-[10px] text-gray-500">Pronto para áudios</p>
+        </div>
       </div>
 
       {/* Logout */}
       <button
         onClick={handleLogout}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '10px 14px',
-          borderRadius: '12px',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: '#64748b',
-          fontSize: '14px',
-          fontWeight: '500',
-          width: '100%',
-          textAlign: 'left',
-        }}
+        className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-500/5 transition-all duration-200 w-full text-left"
       >
         <LogOut size={18} />
-        Sair
+        Sair da conta
       </button>
     </div>
-  )
+  );
 
-  if (isMobile) {
-    return content
-  }
+  if (isMobile) return content;
 
   return (
-    <aside
-      style={{
-        width: 'var(--sidebar-width)',
-        minHeight: '100vh',
-        background: '#020617',
-        borderRight: '1px solid rgba(255,255,255,0.05)',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 50,
-      }}
-      className="desktop-sidebar"
-    >
-      <style jsx>{`
-        @media (max-width: 768px) {
-          .desktop-sidebar {
-            display: none !important;
-          }
-        }
-      `}</style>
+    <aside className="hidden md:block w-64 min-h-screen bg-[#101216] border-r border-white/5 fixed top-0 left-0 z-50">
       {content}
     </aside>
-  )
+  );
 }
