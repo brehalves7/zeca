@@ -10,7 +10,7 @@ import { AddClienteSection } from "./add-cliente-section";
 import { ClienteActions } from "./cliente-actions";
 import { SearchInput } from "./search-input";
 
-// Função de busca (mantida como você enviou, pois já está correta)
+// Função de busca
 async function getClientes(userId: string, query?: string) {
   try {
     const supabase = await createClient();
@@ -153,16 +153,8 @@ export default async function ClientesPage(props: {
                         : `Há ${cliente.dias_inatividade} dias`}
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          className="p-3 text-slate-500 hover:text-emerald-500 transition-all"
-                          title="Enviar Mensagem"
-                        >
-                          <MessageSquare size={20} />
-                        </button>
-
-                        <ClienteActions id={cliente.id} nome={cliente.nome} />
-                      </div>
+                      {/* ALTERAÇÃO AQUI: Passamos o objeto cliente inteiro */}
+                      <ClienteActions cliente={cliente} />
                     </td>
                   </tr>
                 ))

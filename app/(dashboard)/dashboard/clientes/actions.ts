@@ -64,3 +64,30 @@ export async function deleteCliente(clienteId: string) {
   revalidatePath("/dashboard/clientes");
   return { success: true };
 }
+
+export async function updateCliente(clienteId: string, formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Não autorizado");
+
+  const nome = formData.get("nome") as string;
+  const telefone = formData.get("telefone") as string;
+  const cidade = formData.get("cidade") as string;
+
+  const { error } = await supabase
+    .from("clientes")
+    .update({ nome, telefone, cidade })
+    .eq("id", clienteId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Erro ao atualizar:", error);
+    return { error: "Erro ao atualizar cliente" };
+  }
+
+  revalidatePath("/dashboard/clientes");
+  return { success: true };
+}
