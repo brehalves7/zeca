@@ -11,6 +11,8 @@ import {
   LogOut,
   Zap,
   MessageSquare,
+  Users, // Ícone para Clientes
+  User, // Ícone para Perfil
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -18,7 +20,9 @@ import { createClient } from "@/lib/supabase/client";
 const navItems = [
   { href: "/dashboard/home", label: "Visão Geral", icon: LayoutDashboard },
   { href: "/dashboard/pedidos", label: "Pedidos", icon: ShoppingCart },
+  { href: "/dashboard/clientes", label: "Clientes", icon: Users },
   { href: "/dashboard/produtos", label: "Produtos", icon: Package },
+  { href: "/dashboard/perfil", label: "Meu Perfil", icon: User },
   { href: "/dashboard/configuracoes", label: "Configurações", icon: Settings },
 ];
 
