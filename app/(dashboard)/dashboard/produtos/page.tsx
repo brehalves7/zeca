@@ -280,14 +280,16 @@ export default function ProdutosPage() {
         const file = fileArray[i];
         const mimeType = file.type; // image/jpeg, image/png, image/webp
 
-        // Converte arquivo para base64
-        const arrayBuffer = await file.arrayBuffer();
-        const base64 = btoa(
-          new Uint8Array(arrayBuffer).reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            "",
-          ),
-        );
+        // Converte arquivo para base64 de forma robusta usando FileReader
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
 
         const result = await extrairProdutosDaImagem(base64, mimeType);
 
@@ -313,6 +315,10 @@ export default function ProdutosPage() {
       setErrorMessage(
         err.message || "O Zeca teve um problema ao ler as imagens. Tente novamente em instantes.",
       );
+      // Se for o erro genérico de produção do Next.js, logar o erro real se possível
+      if (err.message?.includes("Server Components render")) {
+        console.error("DEBUG: Erro de transporte do Server Action detectado.");
+      }
     } finally {
       setExtractionLoading(false);
       setProgress({ current: 0, total: 0, type: "" });
