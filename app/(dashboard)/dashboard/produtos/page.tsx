@@ -17,7 +17,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Product } from "@/lib/types";
-import { extrairProdutosDaImagem, extrairProdutosDoPDFv2 } from "./catalog-actions";
+import {
+  extrairProdutosDaImagem,
+  extrairProdutosDoPDFv2,
+} from "@/app/actions/catalog-actions";
 import { PDFDocument } from "pdf-lib";
 
 // Função auxiliar para evitar erro 429 (Too Many Requests)
@@ -56,14 +59,19 @@ function EditProductModal({
           <h3 className="text-xl font-black text-white flex items-center gap-2">
             <Pencil className="text-emerald-500" size={24} /> Editar Produto
           </h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-white transition-colors"
+          >
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs uppercase font-bold text-slate-500 ml-1">Nome do Produto</label>
+            <label className="text-xs uppercase font-bold text-slate-500 ml-1">
+              Nome do Produto
+            </label>
             <input
               required
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:border-emerald-500/50 outline-none"
@@ -71,10 +79,12 @@ function EditProductModal({
               onChange={(e) => setEdited({ ...edited, name: e.target.value })}
             />
           </div>
-          
+
           <div className="flex gap-4">
             <div className="space-y-1 flex-1">
-              <label className="text-xs uppercase font-bold text-slate-500 ml-1">SKU</label>
+              <label className="text-xs uppercase font-bold text-slate-500 ml-1">
+                SKU
+              </label>
               <input
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:border-emerald-500/50 outline-none"
                 value={edited.sku || ""}
@@ -82,14 +92,21 @@ function EditProductModal({
               />
             </div>
             <div className="space-y-1 flex-1">
-              <label className="text-xs uppercase font-bold text-slate-500 ml-1">Preço (R$)</label>
+              <label className="text-xs uppercase font-bold text-slate-500 ml-1">
+                Preço (R$)
+              </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:border-emerald-500/50 outline-none"
                 value={edited.price}
-                onChange={(e) => setEdited({ ...edited, price: parseFloat(e.target.value) || 0 })}
+                onChange={(e) =>
+                  setEdited({
+                    ...edited,
+                    price: parseFloat(e.target.value) || 0,
+                  })
+                }
               />
             </div>
           </div>
@@ -296,7 +313,9 @@ export default function ProdutosPage() {
         if (result && !("error" in result) && Array.isArray(result)) {
           todosProdutos = [...todosProdutos, ...result];
         } else if (result && "error" in result) {
-          throw new Error((result as any).message || "Erro na extração da imagem.");
+          throw new Error(
+            (result as any).message || "Erro na extração da imagem.",
+          );
         }
 
         // Espera de segurança entre imagens (4s para evitar rate limit)
@@ -308,12 +327,15 @@ export default function ProdutosPage() {
       if (todosProdutos.length > 0) {
         setAiReviewList(todosProdutos);
       } else {
-        setErrorMessage("Nenhum produto encontrado nas imagens. Verifique se as imagens contêm catálogos legíveis.");
+        setErrorMessage(
+          "Nenhum produto encontrado nas imagens. Verifique se as imagens contêm catálogos legíveis.",
+        );
       }
     } catch (err: any) {
       console.error(err);
       setErrorMessage(
-        err.message || "O Zeca teve um problema ao ler as imagens. Tente novamente em instantes.",
+        err.message ||
+          "O Zeca teve um problema ao ler as imagens. Tente novamente em instantes.",
       );
       // Se for o erro genérico de produção do Next.js, logar o erro real se possível
       if (err.message?.includes("Server Components render")) {
@@ -376,7 +398,9 @@ export default function ProdutosPage() {
         if (result && !("error" in result) && Array.isArray(result)) {
           todosProdutos = [...todosProdutos, ...result];
         } else if (result && "error" in result) {
-          throw new Error((result as any).message || "Erro na extração do PDF.");
+          throw new Error(
+            (result as any).message || "Erro na extração do PDF.",
+          );
         }
 
         // Espera de segurança entre páginas (4s para evitar rate limit)
@@ -388,12 +412,15 @@ export default function ProdutosPage() {
       if (todosProdutos.length > 0) {
         setAiReviewList(todosProdutos);
       } else {
-        setErrorMessage("Nenhum dado legível encontrado neste PDF. Verifique se o arquivo é um catálogo de produtos.");
+        setErrorMessage(
+          "Nenhum dado legível encontrado neste PDF. Verifique se o arquivo é um catálogo de produtos.",
+        );
       }
     } catch (err: any) {
       console.error(err);
       setErrorMessage(
-        err.message || "O Zeca teve um problema ao ler o arquivo. Tente novamente em instantes.",
+        err.message ||
+          "O Zeca teve um problema ao ler o arquivo. Tente novamente em instantes.",
       );
     } finally {
       setExtractionLoading(false);
@@ -431,13 +458,15 @@ export default function ProdutosPage() {
 
   const handleDeleteProduct = async (id: number) => {
     if (!confirm("Tem certeza que deseja excluir este produto?")) return;
-    
+
     // Optimistic UI update can also be done, but let's wait for the db
     const { error } = await supabase.from("products").delete().eq("id", id);
-    
+
     if (error) {
       console.error("Erro ao deletar produto:", error);
-      alert("Não foi possível excluir o produto. Ele pode estar atrelado a algum pedido.");
+      alert(
+        "Não foi possível excluir o produto. Ele pode estar atrelado a algum pedido.",
+      );
     } else {
       setProducts(products.filter((p) => p.id !== id));
     }
@@ -447,10 +476,10 @@ export default function ProdutosPage() {
     // Atualiza preço, sku e nome
     const { error } = await supabase
       .from("products")
-      .update({ 
-        name: updatedProduct.name, 
-        sku: updatedProduct.sku, 
-        price: updatedProduct.price 
+      .update({
+        name: updatedProduct.name,
+        sku: updatedProduct.sku,
+        price: updatedProduct.price,
       })
       .eq("id", updatedProduct.id);
 
@@ -458,7 +487,9 @@ export default function ProdutosPage() {
       console.error("Erro ao editar produto:", error);
       alert("Não foi possível salvar as alterações.");
     } else {
-      setProducts(products.map((p) => p.id === updatedProduct.id ? updatedProduct : p));
+      setProducts(
+        products.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)),
+      );
       setEditingProduct(null);
     }
   };
@@ -605,7 +636,10 @@ export default function ProdutosPage() {
             exit={{ opacity: 0, y: -10 }}
             className="mb-8 p-5 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3"
           >
-            <AlertCircle className="text-red-400 flex-shrink-0 mt-0.5" size={20} />
+            <AlertCircle
+              className="text-red-400 flex-shrink-0 mt-0.5"
+              size={20}
+            />
             <div className="flex-1">
               <p className="text-red-400 font-bold text-sm">Erro na extração</p>
               <p className="text-red-300/80 text-xs mt-1">{errorMessage}</p>
