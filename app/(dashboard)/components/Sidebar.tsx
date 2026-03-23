@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -14,6 +15,7 @@ import {
   Users, // Ícone para Clientes
   User, // Ícone para Perfil
   X,
+  ShieldCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -35,6 +37,15 @@ export default function Sidebar({ isMobile, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function getUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserEmail(user?.email ?? null);
+    }
+    getUser();
+  }, [supabase]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -106,6 +117,47 @@ export default function Sidebar({ isMobile, onClose }: SidebarProps) {
             </Link>
           );
         })}
+
+        {/* Seção Administração (Apenas para o mestre) */}
+        {userEmail === "breh_sjp@hotmail.com" && (
+          <div className="mt-8 mb-2">
+            <div className="px-4 mb-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                Administração
+              </p>
+            </div>
+            <Link
+              href="/dashboard/admin/clientes"
+              onClick={onClose}
+              className="group relative no-underline block"
+            >
+              {pathname === "/dashboard/admin/clientes" && (
+                <motion.div
+                  layoutId="activeNav"
+                  className="absolute inset-0 bg-white/5 rounded-xl border border-white/5"
+                  transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
+                />
+              )}
+              <div
+                className={`
+                flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 relative z-10
+                ${pathname === "/dashboard/admin/clientes" ? "text-white font-semibold" : "text-gray-400 font-medium hover:text-gray-200"}
+              `}
+              >
+                <ShieldCheck
+                  size={18}
+                  strokeWidth={pathname === "/dashboard/admin/clientes" ? 2.5 : 2}
+                  className={
+                    pathname === "/dashboard/admin/clientes"
+                      ? "text-emerald-500"
+                      : "group-hover:text-emerald-400"
+                  }
+                />
+                Gestão de Clientes
+              </div>
+            </Link>
+          </div>
+        )}
       </nav>
 
       {/* Widget de Status do Bot */}
