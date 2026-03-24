@@ -29,30 +29,33 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // Importante: getUser() é mais seguro que getSession() para middleware
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
 
-  // Proteção: Redireciona usuários não autenticados da rota /dashboard
+  // 1. Proteção: Redireciona usuários NÃO autenticados que tentam aceder ao /dashboard
   if (!user && pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Proteção: Redireciona usuários autenticados da página /login para o /dashboard
+  // 2. Proteção: Redireciona usuários JÁ autenticados que tentam entrar no /login
   if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 
-  // Proteção: Redireciona rota raiz para dashboard (se logado) ou login (se não)
-  if (pathname === '/') {
+  // 3. Rota Raiz (Home): 
+  // Se o utilizador estiver logado e entrar na Home, mandamos para o Dashboard.
+  // Se NÃO estiver logado, o middleware NÃO faz nada e deixa o Next carregar a app/page.tsx (Landing Page).
+  if (user && pathname === '/') {
     const url = request.nextUrl.clone()
-    url.pathname = user ? '/dashboard' : '/login'
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 
@@ -61,6 +64,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
+     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

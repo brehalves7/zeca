@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { ShieldAlert, Users, LayoutGrid } from "lucide-react";
 import { SearchInput } from "./search-input";
@@ -14,23 +15,22 @@ export default async function AdminClientesPage(props: {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  // Proteção de Rota Server-Side: Apenas breh_sjp@hotmail.com
+  // Proteção de Rota Server-Side: Apenas seu e-mail tem acesso
   if (authError || !user || user.email !== "breh_sjp@hotmail.com") {
     redirect("/dashboard");
   }
 
-  // Resolução de SearchParams baseado no novo formato do Next.js 15+
+  // Resolução de SearchParams (Next.js 15+)
   const searchParams = await props.searchParams;
   const searchTerm = searchParams?.query || "";
 
-  // Consulta ao banco (tabela profiles para dados públicos, se houver view custom pode ser aqui)
+  // Consulta ao banco (tabela profiles)
   let request = supabase
     .from("profiles")
     .select("*")
     .order("created_at", { ascending: false });
 
   if (searchTerm) {
-    // Busca customizada, pode variar dependo dos campos disponíveis
     request = request.or(
       `id.eq.${searchTerm},company_name.ilike.%${searchTerm}%,whatsapp_business_number.ilike.%${searchTerm}%`
     );
@@ -38,8 +38,22 @@ export default async function AdminClientesPage(props: {
 
   const { data: clients, error: fetchError } = await request;
 
+  // ======= LOGS DE MONITORAMENTO (VEJA NO TERMINAL DO VS CODE) =======
+  console.log("======= [ÁREA MESTRE] RELATÓRIO DE DADOS =======");
+  console.log("Admin logado:", user?.email);
+  if (fetchError) {
+    console.error("Erro na busca:", fetchError.message);
+  } else {
+    console.log("Usuários encontrados no banco:", clients?.length || 0);
+    if (clients && clients.length > 0) {
+      console.log("IDs carregados:", clients.map(c => c.id));
+    }
+  }
+  console.log("================================================");
+
   return (
     <div className="p-6 lg:p-10 max-w-[1600px] mx-auto space-y-8 bg-[#0F1115] min-h-screen text-slate-200">
+      
       {/* Header Administrativo */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-indigo-500/10 pb-8">
         <div>
@@ -86,16 +100,27 @@ export default async function AdminClientesPage(props: {
         </div>
       </div>
 
+      {/* Alerta de Erro Crítico */}
       {fetchError && (
-        <div className="p-6 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl mb-8 flex items-center gap-3 font-semibold shadow-lg shadow-red-500/10">
+        <div className="p-6 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl mb-8 flex items-center gap-3 font-semibold shadow-lg">
           <ShieldAlert size={24} />
-          Erro ao carregar a lista de clientes. Verifique as políticas de segurança (RLS).
+          <div>
+            <p>Erro de conexão com o banco de dados.</p>
+            <p className="text-xs opacity-70 font-mono">{fetchError.message}</p>
+          </div>
         </div>
       )}
 
-      {/* Grid de Cards */}
+      {/* Grid de Cards - Ajuste de Estabilidade */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-10">
-        {!clients || clients.length === 0 ? (
+        {clients && clients.length > 0 ? (
+          clients.map((client) => (
+            <ClientCard 
+              key={client.id} 
+              client={client} 
+            />
+          ))
+        ) : (
           <div className="col-span-full py-24 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-3xl bg-white/[0.02]">
             <Users size={48} className="text-slate-600 mb-4" />
             <h3 className="text-lg font-bold text-slate-200">
@@ -103,14 +128,10 @@ export default async function AdminClientesPage(props: {
             </h3>
             <p className="text-sm text-slate-500 mt-2">
               {searchTerm 
-                ? "Tente buscar usando outro termo ou ID." 
-                : "Os usuários aparecerão aqui quando se cadastrarem."}
+                ? `Não encontramos resultados para "${searchTerm}"` 
+                : "Os usuários aparecerão aqui assim que a trigger de cadastro for disparada."}
             </p>
           </div>
-        ) : (
-          clients.map((client) => (
-            <ClientCard key={client.id} client={client} />
-          ))
         )}
       </div>
     </div>
