@@ -32,8 +32,9 @@ export default function LoginPage() {
       if (error) {
         setError('E-mail ou senha inválidos. Tente novamente.')
       } else {
-        router.push('/dashboard')
         router.refresh()
+        router.push('/dashboard')
+        return // Retorna para evitar setLoading(false) se estivermos navegando
       }
     } else {
       const { error } = await supabase.auth.signUp({ email, password })
