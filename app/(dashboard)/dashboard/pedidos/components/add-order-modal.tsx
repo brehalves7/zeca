@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X, User, Mail, Phone, ShoppingBag, Hash, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, X, User, Mail, Phone, ShoppingBag, Hash, Loader2, Package, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -12,13 +12,85 @@ export default function AddOrderModal() {
   const router = useRouter();
   const supabase = createClient();
 
+  const [products, setProducts] = useState<any[]>([]);
+  const [fetchingProducts, setFetchingProducts] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [formData, setFormData] = useState({
     cliente_nome: "",
     cliente_email: "",
     cliente_telefone: "",
-    valor_total: "",
-    itens_quantidade: "",
+    valor_total: "0",
+    itens_quantidade: "1",
+    produto_id: "",
+    preco_unitario: 0,
+    sku: "",
   });
+
+  const selectedProduct = products.find(p => p.id === formData.produto_id);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchProducts();
+    }
+  }, [isOpen]);
+
+  const fetchProducts = async () => {
+    setFetchingProducts(true);
+    console.log("Iniciando busca de produtos na tabela 'products'...");
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, name, sku, price")
+      .order("name");
+    
+    if (error) {
+      console.error("Detalhes do erro Supabase:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+    } else {
+      console.log("Produtos recebidos da tabela 'products':", data);
+      setProducts(data || []);
+    }
+    setFetchingProducts(false);
+  };
+
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleProductSelect = (product: any) => {
+    setFormData({
+      ...formData,
+      produto_id: product.id,
+      sku: product.sku,
+    });
+    setSearchTerm(product.name);
+    setIsDropdownOpen(false);
+  };
+
+  const handlePriceChange = (price: string) => {
+    const p = parseFloat(price) || 0;
+    const quantity = parseInt(formData.itens_quantidade) || 0;
+    setFormData({
+      ...formData,
+      preco_unitario: p,
+      valor_total: (p * quantity).toString(),
+    });
+  };
+
+  const handleQuantityChange = (qty: string) => {
+    const quantity = parseInt(qty) || 0;
+    const price = formData.preco_unitario || 0;
+    setFormData({
+      ...formData,
+      itens_quantidade: qty,
+      valor_total: (price * quantity).toString(),
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +100,12 @@ export default function AddOrderModal() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      if (!formData.itens_quantidade || !formData.valor_total || !formData.produto_id) {
+        alert("Por favor, selecione um produto e defina a quantidade/valor.");
+        setLoading(false);
+        return;
+      }
+
       // Gera um código de pedido simples (ex: timestamp ou random)
       const codigo_pedido = Math.floor(1000 + Math.random() * 9000).toString();
 
@@ -35,29 +113,40 @@ export default function AddOrderModal() {
         {
           user_id: user.id,
           cliente_nome: formData.cliente_nome,
-          cliente_email: formData.cliente_email,
-          cliente_telefone: formData.cliente_telefone,
-          valor_total: parseFloat(formData.valor_total),
-          itens_quantidade: parseInt(formData.itens_quantidade),
+          valor_total: Number(formData.valor_total),
+          itens_quantidade: Number(formData.itens_quantidade),
+          sku: formData.sku,
           codigo_pedido,
           status: "PENDENTE",
         },
       ]);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro Supabase no Insert:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
 
       setIsOpen(false);
       setFormData({
         cliente_nome: "",
         cliente_email: "",
         cliente_telefone: "",
-        valor_total: "",
-        itens_quantidade: "",
+        valor_total: "0",
+        itens_quantidade: "1",
+        produto_id: "",
+        preco_unitario: 0,
+        sku: "",
       });
+      setSearchTerm("");
       router.refresh();
-    } catch (error) {
-      console.error("Erro ao criar pedido:", error);
-      alert("Erro ao criar pedido. Verifique os campos.");
+    } catch (error: any) {
+      console.error("Erro completo ao criar pedido:", error);
+      alert(`Erro ao criar pedido: ${error.message || "Verifique os campos."}`);
     } finally {
       setLoading(false);
     }
@@ -128,6 +217,119 @@ export default function AddOrderModal() {
                   </div>
                 </div>
 
+                {/* Seleção de Produto (Searchable Combobox) */}
+                <div className="space-y-2 relative">
+                  <div className="flex justify-between items-center ml-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Selecionar Produto (Catálogo)
+                    </label>
+                  </div>
+                  <div className="relative group">
+                    <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
+                    <input
+                      type="text"
+                      placeholder={fetchingProducts ? "Carregando catálogo..." : "Escolha o produto..."}
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setIsDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsDropdownOpen(true)}
+                      className="w-full bg-[#16181D] border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-all font-medium italic"
+                    />
+
+                    {/* Lista Dropdown */}
+                    <AnimatePresence>
+                      {isDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute z-[160] w-full mt-2 bg-[#1c1f26] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto custom-scrollbar"
+                        >
+                          {fetchingProducts ? (
+                            <div className="p-4 text-center text-slate-500 text-xs italic">Buscando produtos...</div>
+                          ) : filteredProducts.length > 0 ? (
+                            filteredProducts.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => handleProductSelect(p)}
+                                className="w-full text-left p-4 hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors border-b border-white/5 last:border-none flex justify-between items-center"
+                              >
+                                <div>
+                                  <p className="text-sm font-bold">{p.name}</p>
+                                  <p className="text-[10px] uppercase text-slate-500 font-black">SKU: {p.sku}</p>
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-slate-500 text-xs italic font-medium flex flex-col items-center gap-2">
+                              <AlertCircle size={16} className="text-amber-500" />
+                              Nenhum produto encontrado
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Clique fora para fechar */}
+                  {isDropdownOpen && (
+                    <div 
+                      className="fixed inset-0 z-[155]" 
+                      onClick={() => setIsDropdownOpen(false)}
+                    />
+                  )}
+
+                  {selectedProduct && (
+                    <div className="flex items-center gap-2 ml-1 mt-1">
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                        SKU Vinculado: <span className="text-emerald-500/80">{selectedProduct.sku}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Preço Unitário (Negociável) */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                      Preço Unitário (R$)
+                    </label>
+                    <div className="relative group">
+                      <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
+                      <input
+                        required
+                        type="number"
+                        step="0.01"
+                        placeholder="0,00"
+                        onChange={(e) => handlePriceChange(e.target.value)}
+                        className="w-full bg-white/5 border border-emerald-500/20 group-focus-within:border-emerald-500/50 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none transition-all font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quantidade */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                      Quantidade
+                    </label>
+                    <div className="relative group">
+                      <ShoppingBag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        value={formData.itens_quantidade}
+                        onChange={(e) => handleQuantityChange(e.target.value)}
+                        placeholder="1"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Email */}
                   <div className="space-y-2">
@@ -165,44 +367,21 @@ export default function AddOrderModal() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Valor Total */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                      Valor Total (R$)
-                    </label>
-                    <div className="relative group">
-                      <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
-                      <input
-                        required
-                        type="number"
-                        step="0.01"
-                        value={formData.valor_total}
-                        onChange={(e) => setFormData({ ...formData, valor_total: e.target.value })}
-                        placeholder="0,00"
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Quantidade */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                      Quantidade
-                    </label>
-                    <div className="relative group">
-                      <ShoppingBag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
-                      <input
-                        required
-                        type="number"
-                        value={formData.itens_quantidade}
-                        onChange={(e) => setFormData({ ...formData, itens_quantidade: e.target.value })}
-                        placeholder="1"
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
-                      />
-                    </div>
-                  </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Valor Total do Pedido
+                </label>
+                <div className="relative group">
+                  <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
+                  <input
+                    required
+                    readOnly
+                    type="text"
+                    value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(formData.valor_total))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-12 pr-4 text-emerald-500 text-xl focus:outline-none transition-all font-black italic"
+                  />
                 </div>
+              </div>
 
                 <button
                   type="submit"
