@@ -17,7 +17,6 @@ import {
 import { EditMetaModal } from "./components/edit-meta-modal";
 import { ResgateModal } from "./components/resgate-modal";
 import Link from "next/link"; // Para o botão Ver Todos
-import { ToggleMenuButton } from "./components/toggle-menu-button"; // Vamos criar este componente
 
 async function getDashboardData(userId: string) {
   const supabase = await createClient();
@@ -84,9 +83,6 @@ export default async function HomePageDashboard() {
       {/* 0. Top Navigation / Header (AJUSTADO PARA MOBILE) */}
       <header className="flex flex-row items-center justify-between gap-4 border-b border-white/5 pb-8">
         <div className="flex items-center gap-4">
-          {/* BOTÃO HAMBÚRGUER (Apenas visível no Mobile/Tablet) */}
-          <ToggleMenuButton />
-
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-3xl font-black text-white tracking-tighter italic">

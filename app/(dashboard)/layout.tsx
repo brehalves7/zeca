@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Sidebar from "./components/Sidebar";
+import MobileSidebar from "@/components/dashboard/mobile-sidebar";
 
 export default async function DashboardLayout({
   children,
@@ -29,11 +30,14 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-[#0F1115] text-white">
-      {/* Sidebar handles its own responsive visibility */}
+      {/* Mobile Sidebar (Fixed Header + Drawer) */}
+      <MobileSidebar userEmail={user.email} />
+
+      {/* Sidebar Desktop */}
       <Sidebar userEmail={user.email} />
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 w-full overflow-x-hidden min-h-screen">
+      <main className="flex-1 w-full overflow-x-hidden min-h-screen pt-16 lg:pt-0">
         {children}
       </main>
     </div>
