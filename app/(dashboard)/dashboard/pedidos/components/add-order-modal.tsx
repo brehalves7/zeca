@@ -13,10 +13,15 @@ export default function AddOrderModal() {
   const supabase = createClient();
 
   const [products, setProducts] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
   const [fetchingProducts, setFetchingProducts] = useState(false);
+  const [fetchingClients, setFetchingClients] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [formData, setFormData] = useState({
+    cliente_id: "",
     cliente_nome: "",
     cliente_email: "",
     cliente_telefone: "",
@@ -32,34 +37,58 @@ export default function AddOrderModal() {
   useEffect(() => {
     if (isOpen) {
       fetchProducts();
+      fetchClients();
     }
   }, [isOpen]);
 
   const fetchProducts = async () => {
     setFetchingProducts(true);
-    console.log("Iniciando busca de produtos na tabela 'products'...");
     const { data, error } = await supabase
       .from("products")
       .select("id, name, sku, price")
       .order("name");
     
-    if (error) {
-      console.error("Detalhes do erro Supabase:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
-    } else {
-      console.log("Produtos recebidos da tabela 'products':", data);
-      setProducts(data || []);
-    }
+    if (!error) setProducts(data || []);
     setFetchingProducts(false);
+  };
+
+  const fetchClients = async () => {
+    setFetchingClients(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.warn("⚠️ [Modal] Usuário não identificado para busca de clientes.");
+        return;
+      }
+
+      console.log("🔍 [Modal] Buscando clientes para o usuário:", user.id);
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id, nome, telefone")
+        .eq("user_id", user.id)
+        .order("nome");
+      
+      if (error) {
+        console.error("❌ [Modal] Erro Supabase ao buscar clientes:", error.message, error.details);
+      } else {
+        console.log("✅ [Modal] Clientes carregados:", data?.length || 0);
+        setClients(data || []);
+      }
+    } catch (err) {
+      console.error("🚨 [Modal] Falha crítica ao buscar clientes:", err);
+    } finally {
+      setFetchingClients(false);
+    }
   };
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredClients = clients.filter(c => 
+    c.nome.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+    c.telefone?.includes(clientSearchTerm)
   );
 
   const handleProductSelect = (product: any) => {
@@ -70,6 +99,17 @@ export default function AddOrderModal() {
     });
     setSearchTerm(product.name);
     setIsDropdownOpen(false);
+  };
+
+  const handleClientSelect = (client: any) => {
+    setFormData({
+      ...formData,
+      cliente_id: client.id,
+      cliente_nome: client.nome,
+      cliente_telefone: client.telefone || "",
+    });
+    setClientSearchTerm(client.nome);
+    setIsClientDropdownOpen(false);
   };
 
   const handlePriceChange = (price: string) => {
@@ -112,7 +152,10 @@ export default function AddOrderModal() {
       const { error } = await supabase.from("pedidos").insert([
         {
           user_id: user.id,
+          cliente_id: formData.cliente_id || null,
           cliente_nome: formData.cliente_nome,
+          cliente_email: formData.cliente_email,
+          cliente_telefone: formData.cliente_telefone,
           valor_total: Number(formData.valor_total),
           itens_quantidade: Number(formData.itens_quantidade),
           sku: formData.sku,
@@ -121,18 +164,11 @@ export default function AddOrderModal() {
         },
       ]);
 
-      if (error) {
-        console.error("Erro Supabase no Insert:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
-      }
+      if (error) throw error;
 
       setIsOpen(false);
       setFormData({
+        cliente_id: "",
         cliente_nome: "",
         cliente_email: "",
         cliente_telefone: "",
@@ -143,6 +179,7 @@ export default function AddOrderModal() {
         sku: "",
       });
       setSearchTerm("");
+      setClientSearchTerm("");
       router.refresh();
     } catch (error: any) {
       console.error("Erro completo ao criar pedido:", error);
@@ -200,21 +237,88 @@ export default function AddOrderModal() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Nome do Cliente */}
-                <div className="space-y-2">
+                {/* Seleção de Cliente */}
+                <div className="space-y-2 relative">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                    Nome do Cliente
+                    Cliente
                   </label>
                   <div className="relative group">
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
                     <input
                       required
-                      value={formData.cliente_nome}
-                      onChange={(e) => setFormData({ ...formData, cliente_nome: e.target.value })}
-                      placeholder="Ex: João Silva"
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-medium"
+                      placeholder={fetchingClients ? "Carregando clientes..." : "Buscar cliente..."}
+                      value={clientSearchTerm}
+                      onChange={(e) => {
+                        setClientSearchTerm(e.target.value);
+                        setFormData({ ...formData, cliente_nome: e.target.value, cliente_id: "" });
+                        setIsClientDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsClientDropdownOpen(true)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
                     />
+
+                    {/* Lista Dropdown Clientes */}
+                    <AnimatePresence>
+                      {isClientDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute z-[170] w-full mt-2 bg-[#1c1f26] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto custom-scrollbar"
+                        >
+                          {fetchingClients ? (
+                            <div className="p-6 text-center text-slate-500 text-xs italic flex items-center justify-center gap-2">
+                              <Loader2 size={14} className="animate-spin" />
+                              Buscando clientes...
+                            </div>
+                          ) : filteredClients.length > 0 ? (
+                            <>
+                              {filteredClients.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => handleClientSelect(c)}
+                                  className="w-full text-left p-4 hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors border-b border-white/5 last:border-none flex justify-between items-center group/item"
+                                >
+                                  <div>
+                                    <p className="text-sm font-bold">{c.nome}</p>
+                                    <p className="text-[10px] uppercase text-slate-500 font-black group-hover/item:text-emerald-500/70">{c.telefone || "Sem telefone"}</p>
+                                  </div>
+                                  <div className="text-[9px] font-black text-slate-700 uppercase group-hover/item:text-emerald-500/40 tracking-tighter">Existente</div>
+                                </button>
+                              ))}
+                              {clientSearchTerm && !filteredClients.find(c => c.nome.toLowerCase() === clientSearchTerm.toLowerCase()) && (
+                                <div className="p-4 bg-emerald-500/5 border-t border-white/5">
+                                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-relaxed">
+                                    Nenhum cliente exato para "<span className="text-emerald-500">{clientSearchTerm}</span>". 
+                                    O pedido será salvo com este nome.
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="p-6 text-center">
+                              <User className="mx-auto text-slate-700/50 mb-3" size={32} />
+                              <p className="text-sm text-slate-400 font-medium">Nenhum cliente encontrado</p>
+                              {clientSearchTerm && (
+                                <p className="text-[10px] text-emerald-500/70 font-black uppercase tracking-widest mt-2 px-2">
+                                  Criar pedido para novo cliente: "{clientSearchTerm}"
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
+
+                  {/* Clique fora para fechar */}
+                  {isClientDropdownOpen && (
+                    <div 
+                      className="fixed inset-0 z-[165]" 
+                      onClick={() => setIsClientDropdownOpen(false)}
+                    />
+                  )}
                 </div>
 
                 {/* Seleção de Produto (Searchable Combobox) */}
