@@ -14,9 +14,11 @@ import {
   Image as ImageIcon,
   FileText,
   Pencil,
+  AlertTriangle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Product } from "@/lib/types";
+import ConfirmModal from "@/components/dashboard/confirm-modal";
 import {
   extrairProdutosDaImagem,
   extrairProdutosDoPDFv2,
@@ -80,8 +82,8 @@ function EditProductModal({
             />
           </div>
 
-          <div className="flex gap-4">
-            <div className="space-y-1 flex-1">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
               <label className="text-xs uppercase font-bold text-slate-500 ml-1">
                 SKU
               </label>
@@ -91,7 +93,23 @@ function EditProductModal({
                 onChange={(e) => setEdited({ ...edited, sku: e.target.value })}
               />
             </div>
-            <div className="space-y-1 flex-1">
+            <div className="space-y-1">
+              <label className="text-xs uppercase font-bold text-slate-500 ml-1">
+                Estoque Inicial
+              </label>
+              <input
+                type="number"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:border-emerald-500/50 outline-none"
+                value={edited.estoque_inicial || 0}
+                onChange={(e) =>
+                  setEdited({
+                    ...edited,
+                    estoque_inicial: parseInt(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-1 col-span-2">
               <label className="text-xs uppercase font-bold text-slate-500 ml-1">
                 Preço (R$)
               </label>
@@ -244,10 +262,13 @@ function ReviewAIModal({
 // --- PÁGINA PRINCIPAL ---
 export default function ProdutosPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // ESTADOS DA IA
   const [extractionLoading, setExtractionLoading] = useState(false);
@@ -265,12 +286,14 @@ export default function ProdutosPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
-        .from("products")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("name");
-      setProducts((data as Product[]) ?? []);
+      
+      const [productsRes, pedidosRes] = await Promise.all([
+        supabase.from("products").select("*").eq("user_id", user.id).order("name"),
+        supabase.from("pedidos").select("sku, itens_quantidade, status").eq("user_id", user.id)
+      ]);
+
+      if (productsRes.data) setProducts(productsRes.data as Product[]);
+      if (pedidosRes.data) setPedidos(pedidosRes.data);
       setLoading(false);
     }
     load();
@@ -440,6 +463,7 @@ export default function ProdutosPage() {
       name: p.name,
       price: p.price || 0,
       sku: String(p.sku),
+      estoque_inicial: 0,
     }));
 
     const { data, error } = await supabase
@@ -456,20 +480,21 @@ export default function ProdutosPage() {
     }
   };
 
-  const handleDeleteProduct = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir este produto?")) return;
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    setIsDeleting(true);
 
-    // Optimistic UI update can also be done, but let's wait for the db
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    const { error } = await supabase.from("products").delete().eq("id", productToDelete.id);
 
     if (error) {
       console.error("Erro ao deletar produto:", error);
-      alert(
-        "Não foi possível excluir o produto. Ele pode estar atrelado a algum pedido.",
-      );
+      alert("Não foi possível excluir o produto. Ele pode estar atrelado a algum pedido.");
     } else {
-      setProducts(products.filter((p) => p.id !== id));
+      setProducts(products.filter((p) => p.id !== productToDelete.id));
     }
+    
+    setIsDeleting(false);
+    setProductToDelete(null);
   };
 
   const handleSaveEdit = async (updatedProduct: Product) => {
@@ -480,6 +505,7 @@ export default function ProdutosPage() {
         name: updatedProduct.name,
         sku: updatedProduct.sku,
         price: updatedProduct.price,
+        estoque_inicial: updatedProduct.estoque_inicial,
       })
       .eq("id", updatedProduct.id);
 
@@ -703,7 +729,7 @@ export default function ProdutosPage() {
                   <Pencil size={18} />
                 </button>
                 <button
-                  onClick={() => handleDeleteProduct(product.id)}
+                  onClick={() => setProductToDelete(product)}
                   className="p-2 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-colors backdrop-blur-md border border-red-500/20"
                   title="Excluir produto"
                 >
@@ -720,11 +746,44 @@ export default function ProdutosPage() {
               <p className="text-slate-500 text-[10px] font-bold uppercase mb-4">
                 SKU: {product.sku || "N/A"}
               </p>
-              <p className="text-xl font-black text-emerald-500">
+              <p className="text-xl font-black text-emerald-500 mb-6">
                 {product.price > 0
                   ? `R$ ${product.price.toFixed(2).replace(".", ",")}`
                   : "R$ 0,00"}
               </p>
+
+              {/* Estatísticas de Estoque */}
+              <div className="grid grid-cols-2 gap-2 mt-auto border-t border-white/5 pt-4">
+                <div className="bg-white/[0.02] p-2 rounded-xl border border-white/5">
+                  <p className="text-[8px] font-black uppercase text-slate-500 tracking-wider mb-1">Saídas</p>
+                  <p className="text-xs font-bold text-amber-500">
+                    {(() => {
+                      const saidas = pedidos
+                        .filter(p => p.sku === product.sku && p.status !== 'CANCELADO')
+                        .reduce((sum, p) => sum + Number(p.itens_quantidade || 0), 0);
+                      return saidas.toString().padStart(2, '0');
+                    })()}
+                  </p>
+                </div>
+                <div className="bg-white/[0.02] p-2 rounded-xl border border-white/5">
+                  <p className="text-[8px] font-black uppercase text-slate-500 tracking-wider mb-1">Atual</p>
+                  <p className={`text-xs font-black ${(() => {
+                    const saidas = pedidos
+                      .filter(p => p.sku === product.sku && p.status !== 'CANCELADO')
+                      .reduce((sum, p) => sum + Number(p.itens_quantidade || 0), 0);
+                    const atual = (product.estoque_inicial || 0) - saidas;
+                    return atual <= 0 ? "text-red-500" : "text-emerald-500";
+                  })()}`}>
+                    {(() => {
+                      const saidas = pedidos
+                        .filter(p => p.sku === product.sku && p.status !== 'CANCELADO')
+                        .reduce((sum, p) => sum + Number(p.itens_quantidade || 0), 0);
+                      const atual = (product.estoque_inicial || 0) - saidas;
+                      return atual;
+                    })()}
+                  </p>
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -751,6 +810,16 @@ export default function ProdutosPage() {
           />
         )}
       </AnimatePresence>
+ 
+      {/* Modal de Confirmação de Exclusão */}
+      <ConfirmModal
+        isOpen={!!productToDelete}
+        onClose={() => setProductToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        loading={isDeleting}
+        title="Excluir Produto"
+        description={`Deseja realmente excluir ${productToDelete?.name}? Se houver pedidos vinculados a este SKU, a exclusão poderá ser bloqueada pelo sistema.`}
+      />
     </div>
   );
 }

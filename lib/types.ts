@@ -16,6 +16,7 @@ export interface Product {
   price: number
   sku: string | null
   category: string | null
+  estoque_inicial: number | null
   created_at?: string
   updated_at?: string
 }

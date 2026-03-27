@@ -3,16 +3,14 @@
 import { Trash2, Loader2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { deleteCliente } from "./actions";
-import { EditClienteModal } from "./edit-cliente-modal"; // Importando o novo modal
+import { EditClienteModal } from "./edit-cliente-modal";
+import ConfirmModal from "@/components/dashboard/confirm-modal";
 
-// Agora recebemos o objeto cliente completo para passar ao modal de edição
 export function ClienteActions({ cliente }: { cliente: any }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   async function handleDelete() {
-    if (!confirm(`Tem certeza que deseja excluir o cliente ${cliente.nome}?`))
-      return;
-
     setIsDeleting(true);
     const result = await deleteCliente(cliente.id);
 
@@ -21,11 +19,11 @@ export function ClienteActions({ cliente }: { cliente: any }) {
     }
 
     setIsDeleting(false);
+    setShowConfirm(false);
   }
 
   return (
     <div className="relative flex items-center justify-end gap-1">
-      {/* Botão de Enviar Mensagem (Opcional, se quiser manter aqui) */}
       <button
         className="p-3 text-slate-500 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-2xl transition-all"
         title="Enviar Mensagem"
@@ -33,22 +31,25 @@ export function ClienteActions({ cliente }: { cliente: any }) {
         <MessageSquare size={20} />
       </button>
 
-      {/* NOVO: Botão/Modal de Editar */}
       <EditClienteModal cliente={cliente} />
 
-      {/* Botão de Excluir */}
       <button
         disabled={isDeleting}
-        onClick={handleDelete}
+        onClick={() => setShowConfirm(true)}
         className="p-3 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all disabled:opacity-50"
         title="Excluir Cliente"
       >
-        {isDeleting ? (
-          <Loader2 className="animate-spin" size={20} />
-        ) : (
-          <Trash2 size={20} />
-        )}
+        <Trash2 size={20} />
       </button>
+
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleDelete}
+        loading={isDeleting}
+        title="Excluir Cliente"
+        description={`Tem certeza que deseja excluir ${cliente.nome}? Esta ação removerá o histórico e não pode ser desfeita.`}
+      />
     </div>
   );
 }

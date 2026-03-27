@@ -23,7 +23,6 @@ export default function AddOrderModal() {
   const [formData, setFormData] = useState({
     cliente_id: "",
     cliente_nome: "",
-    cliente_email: "",
     cliente_telefone: "",
     valor_total: "0",
     itens_quantidade: "1",
@@ -112,13 +111,30 @@ export default function AddOrderModal() {
     setIsClientDropdownOpen(false);
   };
 
-  const handlePriceChange = (price: string) => {
-    const p = parseFloat(price) || 0;
+  const maskPhone = (value: string) => {
+    return value
+      .replace(/\D/g, "")
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d)/, "$1-$2")
+      .replace(/(-\d{4})\d+?$/, "$1");
+  };
+
+  const handlePriceChange = (value: string) => {
+    // Remove tudo que não é dígito
+    const cleanValue = value.replace(/\D/g, "");
+    if (!cleanValue) {
+      setFormData({ ...formData, preco_unitario: 0, valor_total: "0" });
+      return;
+    }
+    
+    // Converte para decimal (ex: 1500 -> 15.00)
+    const amount = parseFloat(cleanValue) / 100;
     const quantity = parseInt(formData.itens_quantidade) || 0;
+    
     setFormData({
       ...formData,
-      preco_unitario: p,
-      valor_total: (p * quantity).toString(),
+      preco_unitario: amount,
+      valor_total: (amount * quantity).toString(),
     });
   };
 
@@ -154,7 +170,6 @@ export default function AddOrderModal() {
           user_id: user.id,
           cliente_id: formData.cliente_id || null,
           cliente_nome: formData.cliente_nome,
-          cliente_email: formData.cliente_email,
           cliente_telefone: formData.cliente_telefone,
           valor_total: Number(formData.valor_total),
           itens_quantidade: Number(formData.itens_quantidade),
@@ -170,7 +185,6 @@ export default function AddOrderModal() {
       setFormData({
         cliente_id: "",
         cliente_nome: "",
-        cliente_email: "",
         cliente_telefone: "",
         valor_total: "0",
         itens_quantidade: "1",
@@ -405,9 +419,9 @@ export default function AddOrderModal() {
                       <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
                       <input
                         required
-                        type="number"
-                        step="0.01"
-                        placeholder="0,00"
+                        type="text"
+                        placeholder="R$ 0,00"
+                        value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.preco_unitario)}
                         onChange={(e) => handlePriceChange(e.target.value)}
                         className="w-full bg-white/5 border border-emerald-500/20 group-focus-within:border-emerald-500/50 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none transition-all font-bold"
                       />
@@ -435,26 +449,8 @@ export default function AddOrderModal() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Email */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                      Email
-                    </label>
-                    <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
-                      <input
-                        required
-                        type="email"
-                        value={formData.cliente_email}
-                        onChange={(e) => setFormData({ ...formData, cliente_email: e.target.value })}
-                        placeholder="email@exemplo.com"
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
-                      />
-                    </div>
-                  </div>
-
                   {/* Telefone */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 col-span-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                       Telefone / Whats
                     </label>
@@ -463,7 +459,8 @@ export default function AddOrderModal() {
                       <input
                         required
                         value={formData.cliente_telefone}
-                        onChange={(e) => setFormData({ ...formData, cliente_telefone: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, cliente_telefone: maskPhone(e.target.value) })}
+                        maxLength={15}
                         placeholder="(11) 99999-9999"
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
                       />

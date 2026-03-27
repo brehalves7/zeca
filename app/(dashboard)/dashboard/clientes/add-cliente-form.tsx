@@ -7,6 +7,16 @@ import { X, Loader2 } from "lucide-react";
 export default function AddClienteForm({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
 
+  const [telefone, setTelefone] = useState("");
+
+  const maskPhone = (value: string) => {
+    return value
+      .replace(/\D/g, "")
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d)/, "$1-$2")
+      .replace(/(-\d{4})\d+?$/, "$1");
+  };
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -48,7 +58,10 @@ export default function AddClienteForm({ onClose }: { onClose: () => void }) {
             <input 
               name="telefone" 
               required 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500/50 transition-all"
+              value={telefone}
+              onChange={(e) => setTelefone(maskPhone(e.target.value))}
+              maxLength={15}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
               placeholder="(00) 00000-0000"
             />
           </div>
