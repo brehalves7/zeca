@@ -201,20 +201,20 @@ export default async function ClientesPage(props: {
                     className="hover:bg-white/[0.02] transition-colors group"
                   >
                     <td className="px-8 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black transition-all shadow-sm
-                          ${cliente.totalPendente > 0 ? "bg-orange-500/10 text-orange-500 shadow-orange-500/5 border border-orange-500/10" : "bg-emerald-500/10 text-emerald-500 shadow-emerald-500/10"}`}>
-                          {cliente.nome.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-bold text-white group-hover:text-emerald-400 transition-colors">
-                            {cliente.nome}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {cliente.telefone || "Sem telefone"}
-                          </p>
-                        </div>
-                      </div>
+                        <Link href={`/dashboard/clientes/${cliente.id}`} className="flex items-center gap-4 hover:opacity-80 transition-opacity">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black transition-all shadow-sm
+                            ${cliente.totalPendente > 0 ? "bg-orange-500/10 text-orange-500 shadow-orange-500/5 border border-orange-500/10" : "bg-emerald-500/10 text-emerald-500 shadow-emerald-500/10"}`}>
+                            {cliente.nome.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-white group-hover:text-emerald-400 transition-colors">
+                              {cliente.nome}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {cliente.telefone || "Sem telefone"}
+                            </p>
+                          </div>
+                        </Link>
                     </td>
                     <td className="px-8 py-5">
                       <p className={`text-sm font-black italic tracking-tight ${cliente.totalPendente > 0 ? "text-orange-500" : "text-slate-400"}`}>

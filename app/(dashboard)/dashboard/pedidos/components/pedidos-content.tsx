@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import AddOrderModal from "./add-order-modal";
 import OrderDetailsModal from "./order-details-modal";
+import OrderEditModal from "@/components/dashboard/order-edit-modal";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface PedidosContentProps {
@@ -312,72 +313,12 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
         )}
       </div>
 
-      {/* Modal de Edição de Pedido */}
       <AnimatePresence>
         {editingOrder && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setEditingOrder(null)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-[#16181D] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-black text-white italic tracking-tight uppercase flex items-center gap-2">
-                  <Pencil className="text-emerald-500" size={24} /> Editar <span className="text-emerald-500">Valores</span>
-                </h2>
-                <button onClick={() => setEditingOrder(null)} className="text-slate-500 hover:text-white transition-colors">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <form onSubmit={saveEdit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantidade</label>
-                  <input
-                    type="number"
-                    value={editingOrder.itens_quantidade}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, itens_quantidade: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white text-sm focus:border-emerald-500/50 outline-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor Total (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editingOrder.valor_total}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, valor_total: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white text-sm focus:border-emerald-500/50 outline-none font-bold"
-                  />
-                </div>
-                
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setEditingOrder(null)}
-                    className="flex-1 py-4 rounded-2xl border border-white/10 text-white font-bold hover:bg-white/5"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loadingOrderId === editingOrder.id}
-                    className="flex-1 py-4 rounded-2xl bg-emerald-500 text-slate-950 font-black hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center"
-                  >
-                    {loadingOrderId === editingOrder.id ? <Loader2 className="animate-spin" /> : "Salvar"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+          <OrderEditModal 
+            order={editingOrder} 
+            onClose={() => setEditingOrder(null)} 
+          />
         )}
       </AnimatePresence>
     </div>
