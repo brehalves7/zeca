@@ -1,4 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = 'force-dynamic';
+
 import {
   TrendingUp,
   ShoppingCart,
@@ -11,7 +14,8 @@ import {
   ArrowUpRight,
   Wallet,
   Phone,
-  Menu, // Ícone do menu hambúrguer
+  Menu,
+  Clock, // Ícone para pedidos pendentes
 } from "lucide-react";
 
 import { EditMetaModal } from "./components/edit-meta-modal";
@@ -35,25 +39,35 @@ async function getDashboardData(userId: string) {
   const profile = profileRes.data;
   const meta = metaRes.data?.valor_meta ?? 50000;
 
-  // AJUSTE AQUI: Busca APENAS os 4 pedidos pendentes mais recentes
-  const { data: pendingOrders } = await supabase
+  // Busca pedidos para o dashboard
+  const { data: allOrders } = await supabase
     .from("pedidos")
     .select("*")
     .eq("user_id", userId)
-    .eq("status_ia", "PENDENTE")
-    .order("created_at", { ascending: false })
-    .limit(4); // Limite de 4 para a Home
-
-  const { data: salesData } = await supabase
-    .from("pedidos")
-    .select("valor_total")
-    .eq("user_id", userId)
-    .eq("status_ia", "CONFIRMADO")
     .gte("created_at", startOfMonth.toISOString());
 
-  const totalReached = salesData?.reduce((sum, o) => sum + Number(o.valor_total), 0) ?? 0;
-  const commission = totalReached * (profile?.comissao_padrao ?? 0.05);
-  const percentage = Math.min(Math.round((totalReached / meta) * 100), 100);
+  const orders = allOrders ?? [];
+
+  // 1. Total Pago (Pedidos com status 'PAGO')
+  const totalPaid = orders
+    .filter(o => o.status === 'PAGO')
+    .reduce((sum, o) => sum + Number(o.valor_total), 0);
+
+  // 2. Total Pendente (Pedidos com status 'PENDENTE')
+  const totalPending = orders
+    .filter(o => o.status === 'PENDENTE')
+    .reduce((sum, o) => sum + Number(o.valor_total), 0);
+
+  // 3. Fila de Conferência (Últimos 4 pedidos com status_ia 'PENDENTE')
+  const pendingOrders = orders
+    .filter(o => o.status_ia === 'PENDENTE')
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 4);
+
+  const totalReached = totalPaid;
+  const commission = totalPaid * (profile?.comissao_padrao ?? 0.05);
+  const percentagePaid = Math.min((totalPaid / meta) * 100, 100);
+  const percentagePending = Math.min((totalPending / meta) * 100, 100 - percentagePaid);
 
   const { data: inactiveClients } = await supabase
     .from("clientes")
@@ -64,9 +78,16 @@ async function getDashboardData(userId: string) {
 
   return {
     profile,
-    pendingOrders: pendingOrders ?? [],
+    pendingOrders,
     inactiveClients: inactiveClients ?? [],
-    metrics: { totalReached, meta, commission, percentage },
+    metrics: { 
+      totalPaid, 
+      totalPending, 
+      meta, 
+      commission, 
+      percentagePaid, 
+      percentagePending 
+    },
   };
 }
 
@@ -134,33 +155,54 @@ export default async function HomePageDashboard() {
                 />
               </div>
               <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
-                R$ {data.metrics.totalReached.toLocaleString("pt-BR")}
+                R$ {data.metrics.totalPaid.toLocaleString("pt-BR")}
               </h2>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full">
+                  <Clock size={12} className="text-orange-500" />
+                  <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">+ R$ {data.metrics.totalPending.toLocaleString("pt-BR")} aguardando</span>
+                </div>
+              </div>
             </div>
             <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-1 bg-white/5 sm:bg-transparent p-3 sm:p-0 rounded-xl sm:rounded-none w-full sm:w-auto justify-between sm:justify-start">
               <span className="text-3xl md:text-4xl font-black text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                {data.metrics.percentage}%
+                {Math.round(data.metrics.percentagePaid)}%
               </span>
               <span className="text-[10px] font-bold text-slate-500 uppercase mt-1">atingido</span>
             </div>
           </div>
 
-          <div className="relative h-4 w-full bg-white/5 rounded-full p-1 border border-white/5 backdrop-blur-sm mb-6">
+          <div className="relative h-6 w-full bg-white/5 rounded-full p-1.5 border border-white/5 backdrop-blur-sm mb-6 flex overflow-hidden">
+            {/* Parte PAGO (Verde) */}
             <div
-              className="h-full rounded-full transition-all duration-1000 ease-in-out relative"
+              className={`h-full rounded-l-full transition-all duration-1000 ease-in-out relative
+                ${data.metrics.percentagePaid >= 100 ? "rounded-r-full" : ""}
+                ${data.metrics.percentagePaid >= 80 ? "shadow-[0_0_20px_rgba(16,185,129,0.5)]" : ""}
+              `}
               style={{ 
-                width: `${data.metrics.percentage}%`,
+                width: `${data.metrics.percentagePaid}%`,
                 background: `linear-gradient(90deg, #10b981 0%, #34d399 100%)`,
-                boxShadow: '0 0 20px rgba(16,185,129,0.4)'
               }}
             >
-              <div className="absolute top-0 right-0 h-full w-4 bg-white/20 blur-sm rounded-full" />
+              {data.metrics.percentagePaid >= 80 && (
+                <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full blur-sm" />
+              )}
             </div>
+            
+            {/* Parte PENDENTE (Laranja) */}
+            <div
+              className="h-full transition-all duration-1000 ease-in-out"
+              style={{ 
+                width: `${data.metrics.percentagePending}%`,
+                background: `linear-gradient(90deg, #f97316 0%, #fb923c 100%)`,
+                opacity: 0.8
+              }}
+            />
           </div>
 
           <div className="flex justify-between items-center text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-500">
             <div className="flex gap-4 md:gap-6">
-              <span className="hidden xs:inline">Mínimo: R$ 0</span>
+              <span className="text-emerald-500">Pago: R$ {data.metrics.totalPaid.toLocaleString("pt-BR")}</span>
               <span className="text-white italic">Alvo: R$ {data.metrics.meta.toLocaleString("pt-BR")}</span>
             </div>
             <p className="italic hidden sm:block">Sincronizado via IA</p>
