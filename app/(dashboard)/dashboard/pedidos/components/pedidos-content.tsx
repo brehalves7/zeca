@@ -18,9 +18,11 @@ import { ptBR } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import AddOrderModal from "./add-order-modal";
-import OrderDetailsModal from "./order-details-modal";
+import OrderDetailsModal from "@/components/dashboard/order-details-modal";
 import OrderEditModal from "@/components/dashboard/order-edit-modal";
 import { motion, AnimatePresence } from "framer-motion";
+import { StatusBadge } from "@/components/dashboard/status-badge";
+import { useOrderActions } from "@/lib/hooks/use-order-actions";
 
 interface PedidosContentProps {
   initialPedidos: any[];
@@ -30,62 +32,30 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeStatus, setActiveStatus] = useState("TODOS");
   const [isMounted, setIsMounted] = useState(false);
-  const [loadingOrderId, setLoadingOrderId] = useState<number | null>(null);
   const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [selectedDetailsOrder, setSelectedDetailsOrder] = useState<any>(null);
+  const [localLoadingId, setLocalLoadingId] = useState<string | null>(null);
   
   const router = useRouter();
-  const supabase = createClient();
+  const { updateOrderStatus } = useOrderActions();
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const toggleStatus = async (order: any) => {
-    setLoadingOrderId(order.id);
+  const handleToggleStatus = async (order: any) => {
+    setLocalLoadingId(order.id);
     const newStatus = order.status === 'PAGO' ? 'PENDENTE' : 'PAGO';
-    
-    try {
-      const { error } = await supabase
-        .from("pedidos")
-        .update({ status: newStatus })
-        .eq("id", order.id);
-
-      if (error) throw error;
-      router.refresh();
-    } catch (err) {
-      console.error("Erro ao alternar status:", err);
+    const result = await updateOrderStatus(order.id, newStatus);
+    if (result.success) {
+      // O router.refresh() já é chamado pelo hook
+    } else {
       alert("Falha ao atualizar status.");
-    } finally {
-      setLoadingOrderId(null);
     }
+    setLocalLoadingId(null);
   };
 
-  const saveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingOrder) return;
-    
-    setLoadingOrderId(editingOrder.id);
-    try {
-      const { error } = await supabase
-        .from("pedidos")
-        .update({
-          itens_quantidade: Number(editingOrder.itens_quantidade),
-          valor_total: Number(editingOrder.valor_total)
-        })
-        .eq("id", editingOrder.id);
-
-      if (error) throw error;
-      setEditingOrder(null);
-      router.refresh();
-    } catch (err) {
-      console.error("Erro ao salvar edição:", err);
-      alert("Falha ao salvar alterações.");
-    } finally {
-      setLoadingOrderId(null);
-    }
-  };
-
-  // 1. Cálculos de Estatísticas Reais (Baseados no array total vindo do banco)
+  // 1. Cálculos de Estatísticas Reais
   const stats = useMemo(() => {
     const hoje = new Date().toISOString().split('T')[0];
     const pedidosHoje = initialPedidos.filter(p => p.created_at.startsWith(hoje)).length;
@@ -117,13 +87,11 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
   // 2. Lógica de Filtragem Dinâmica
   const filteredOrders = useMemo(() => {
     return initialPedidos.filter((order) => {
-      // Filtro de Status
       const orderStatus = String(order.status || '').toUpperCase();
       const matchStatus = 
         activeStatus === "TODOS" || 
         orderStatus === activeStatus;
 
-      // Filtro de Busca (Nome ou ID)
       const searchLower = searchTerm.toLowerCase();
       const clientName = String(order.cliente_nome || '').toLowerCase();
       const orderCode = String(order.codigo_pedido || '').toLowerCase();
@@ -135,21 +103,6 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
       return matchStatus && matchSearch;
     });
   }, [initialPedidos, searchTerm, activeStatus]);
-
-  const getStatusInfo = (status: string) => {
-    switch (status.toUpperCase()) {
-      case 'PENDENTE':
-        return { label: 'Aguardando', color: 'text-amber-500', dot: 'bg-amber-500' };
-      case 'PAGO':
-        return { label: 'Aprovado', color: 'text-emerald-500', dot: 'bg-emerald-500' };
-      case 'ENVIADO':
-        return { label: 'Despachado', color: 'text-blue-500', dot: 'bg-blue-500' };
-      case 'CANCELADO':
-        return { label: 'Cancelado', color: 'text-red-500', dot: 'bg-red-500' };
-      default:
-        return { label: status, color: 'text-slate-500', dot: 'bg-slate-500' };
-    }
-  };
 
   const tabs = [
     { id: "TODOS", label: "Todos" },
@@ -236,11 +189,11 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
           </div>
         ) : (
           filteredOrders.map((order) => {
-            const statusInfo = getStatusInfo(order.status);
             return (
               <div
                 key={order.id}
-                className="group bg-[#16181D] hover:bg-[#1c1f26] border border-white/5 p-5 rounded-[2rem] transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
+                onClick={() => setSelectedDetailsOrder(order)}
+                className="group bg-[#16181D] hover:bg-[#1c1f26] border border-white/5 p-5 rounded-[2rem] transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer"
               >
                 <div className="flex items-center gap-5">
                   <div className="w-14 h-14 bg-gradient-to-br from-emerald-500/20 to-emerald-600/5 rounded-2xl flex items-center justify-center text-emerald-500 border border-emerald-500/20">
@@ -257,11 +210,6 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
                           Zeca-IA
                         </span>
                       )}
-                      {order.status_ia !== 'CONFIRMADO' && (
-                        <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
-                          Manual
-                        </span>
-                      )}
                       <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                         • {isMounted ? formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR }) : "..."}
                       </span>
@@ -270,7 +218,7 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
                       {order.cliente_nome}
                     </h3>
                     <p className="text-xs text-slate-500 font-medium">
-                      {order.itens_quantidade} itens • R$ {order.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {order.itens_quantidade} itens • R$ {order.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
@@ -281,29 +229,34 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
                         Status
                       </p>
-                      <button
-                        onClick={() => toggleStatus(order)}
-                        disabled={loadingOrderId === order.id}
-                        className={`flex items-center gap-2 ${statusInfo.color} uppercase text-[11px] font-black tracking-widest hover:opacity-70 transition-opacity disabled:opacity-50 group/status`}
-                      >
-                        {loadingOrderId === order.id ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <div className={`w-1.5 h-1.5 ${statusInfo.dot} rounded-full animate-pulse group-hover/status:scale-150 transition-transform`} />
-                        )}
-                        {statusInfo.label}
-                      </button>
+                      {localLoadingId === order.id ? (
+                        <Loader2 size={16} className="animate-spin text-emerald-500" />
+                      ) : (
+                        <StatusBadge 
+                          status={order.status} 
+                          interactive 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleStatus(order);
+                          }} 
+                        />
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
                       <button
-                        onClick={() => setEditingOrder(order)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingOrder(order);
+                        }}
                         className="p-2 bg-white/5 hover:bg-white/10 text-slate-400 rounded-xl transition-colors"
                         title="Editar valores"
                       >
                         <Pencil size={18} />
                       </button>
-                      <OrderDetailsModal pedido={order} />
+                      <div className="bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all">
+                        Detalhes
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -321,6 +274,14 @@ export default function PedidosContent({ initialPedidos }: PedidosContentProps) 
           />
         )}
       </AnimatePresence>
+
+      {selectedDetailsOrder && (
+        <OrderDetailsModal 
+          pedido={selectedDetailsOrder}
+          isOpen={!!selectedDetailsOrder}
+          onClose={() => setSelectedDetailsOrder(null)}
+        />
+      )}
     </div>
   );
 }

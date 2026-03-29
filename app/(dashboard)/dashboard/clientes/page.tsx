@@ -233,12 +233,12 @@ export default async function ClientesPage(props: {
                     </td>
                     <td className="px-8 py-5">
                       {cliente.totalPendente > 0 ? (
-                        <span className="flex items-center gap-1.5 text-orange-500 bg-orange-500/5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border border-orange-500/10 w-fit">
-                          <Clock size={12} />
-                          Pendente
+                        <span className="flex items-center gap-1.5 text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-orange-500/20 w-fit">
+                          <Clock size={12} className="animate-pulse" />
+                          Inadimplente
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border border-emerald-500/10 w-fit">
+                        <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 w-fit">
                           <CheckCircle2 size={12} />
                           Em dia
                         </span>

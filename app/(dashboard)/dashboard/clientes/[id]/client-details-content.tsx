@@ -19,7 +19,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import OrderEditModal from "@/components/dashboard/order-edit-modal";
-import OrderDetailsModal from "../../pedidos/components/order-details-modal";
+import OrderDetailsModal from "@/components/dashboard/order-details-modal";
+import { StatusBadge } from "@/components/dashboard/status-badge";
 
 interface ClientDetailsContentProps {
   cliente: any;
@@ -28,6 +29,7 @@ interface ClientDetailsContentProps {
 
 export default function ClientDetailsContent({ cliente, initialPedidos }: ClientDetailsContentProps) {
   const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [selectedDetailsOrder, setSelectedDetailsOrder] = useState<any>(null);
 
   // 📈 Cálculos Financeiros
   const stats = useMemo(() => {
@@ -173,7 +175,7 @@ export default function ClientDetailsContent({ cliente, initialPedidos }: Client
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white/[0.02]">
                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Data</th>
@@ -193,7 +195,11 @@ export default function ClientDetailsContent({ cliente, initialPedidos }: Client
                 </tr>
               ) : (
                 initialPedidos.map((pedido) => (
-                  <tr key={pedido.id} className="hover:bg-white/[0.02] transition-colors group">
+                  <tr 
+                    key={pedido.id} 
+                    onClick={() => setSelectedDetailsOrder(pedido)}
+                    className="hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                  >
                     <td className="px-8 py-5">
                       <p className="text-xs font-bold text-slate-400">
                         {format(new Date(pedido.created_at), "dd/MM/yyyy")}
@@ -204,7 +210,7 @@ export default function ClientDetailsContent({ cliente, initialPedidos }: Client
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center text-slate-500">
+                        <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center text-slate-500 group-hover:bg-emerald-500/10 group-hover:text-emerald-500 transition-colors">
                           <ShoppingBag size={14} />
                         </div>
                         <div>
@@ -228,23 +234,23 @@ export default function ClientDetailsContent({ cliente, initialPedidos }: Client
                       </p>
                     </td>
                     <td className="px-8 py-5">
-                      <div className={`flex items-center gap-2 uppercase text-[9px] font-black tracking-widest
-                        ${pedido.status === 'PAGO' ? "text-emerald-500" : "text-amber-500"}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse
-                          ${pedido.status === 'PAGO' ? "bg-emerald-500" : "bg-amber-500"}`} />
-                        {pedido.status === 'PAGO' ? 'Aprovado' : 'Aguardando'}
-                      </div>
+                      <StatusBadge status={pedido.status} />
                     </td>
                     <td className="px-8 py-5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => setEditingOrder(pedido)}
-                          className="p-2.5 bg-white/5 hover:bg-white/10 text-slate-400 rounded-xl transition-all"
-                          title="Editar pedido"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingOrder(pedido);
+                          }}
+                          className="p-2.5 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-500 rounded-xl transition-all border border-white/5"
+                          title="Editar valores"
                         >
                           <Pencil size={16} />
                         </button>
-                        <OrderDetailsModal pedido={pedido} />
+                        <div className="bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-slate-400 px-3 py-2 rounded-xl border border-white/5 transition-all">
+                          Ver Detalhes
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -263,6 +269,14 @@ export default function ClientDetailsContent({ cliente, initialPedidos }: Client
           />
         )}
       </AnimatePresence>
+
+      {selectedDetailsOrder && (
+        <OrderDetailsModal 
+          pedido={selectedDetailsOrder}
+          isOpen={!!selectedDetailsOrder}
+          onClose={() => setSelectedDetailsOrder(null)}
+        />
+      )}
     </div>
   );
 }

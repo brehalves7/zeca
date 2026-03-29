@@ -35,6 +35,7 @@ export interface Order {
   items: OrderItem[]
   total_value: number
   status: OrderStatus
+  data_pagamento?: string
   created_at?: string
   updated_at?: string
 }

@@ -10,7 +10,6 @@ import {
   AlertCircle,
   Zap,
   ChevronRight,
-  ArrowUpRight,
   Wallet,
   Phone,
   Clock,
@@ -20,15 +19,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { EditMetaModal } from "./edit-meta-modal";
 import { ResgateModal } from "./resgate-modal";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import OrderDetailsModal from "@/components/dashboard/order-details-modal";
+import { StatusBadge } from "@/components/dashboard/status-badge";
 
 interface Order {
   id: string;
+  cliente_id: string;
   cliente_nome: string;
+  cliente_telefone?: string;
+  cliente_email?: string;
   valor_total: number;
+  itens_quantidade: number;
+  sku: string;
+  codigo_pedido: string;
   status: string;
   status_ia: string;
+  data_pagamento?: string;
   created_at: string;
+  observacoes?: string;
+  transcricao?: string;
 }
 
 interface Profile {
@@ -55,14 +64,13 @@ export function DashboardContent({
 }: DashboardContentProps) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isValidating, setIsValidating] = useState<string | null>(null);
-
-  const supabase = createClient();
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Re-calcula métricas sempre que orders ou meta mudar
   const metrics = useMemo(() => {
+    // Para o faturamento (Total Pago), usamos a data_pagamento para refletir data real de liquidação
     const totalPaid = orders
-      .filter(o => o.status === 'PAGO')
+      .filter(o => o.status === 'PAGO' && o.data_pagamento)
       .reduce((sum, o) => sum + Number(o.valor_total), 0);
 
     const totalPending = orders
@@ -99,27 +107,6 @@ export function DashboardContent({
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
-    }
-  };
-
-  const handleValidate = async (orderId: string) => {
-    setIsValidating(orderId);
-    try {
-      // Simulação ou chamada real Supabase
-      const { error } = await supabase
-        .from("pedidos")
-        .update({ status: "PAGO", status_ia: "CONCLUIDO" })
-        .eq("id", orderId);
-
-      if (!error) {
-        setOrders(prev => prev.map(o => 
-          o.id === orderId ? { ...o, status: "PAGO", status_ia: "CONCLUIDO" } : o
-        ));
-      }
-    } catch (err) {
-      console.error("Erro ao validar pedido:", err);
-    } finally {
-      setIsValidating(null);
     }
   };
 
@@ -293,7 +280,11 @@ export function DashboardContent({
                       className="space-y-4"
                     >
                       {currentOrders.map((order) => (
-                        <div key={order.id} className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] hover:border-emerald-500/30 transition-all group flex flex-col sm:flex-row items-center gap-4 md:gap-6 shadow-lg relative overflow-hidden">
+                        <div 
+                          key={order.id} 
+                          onClick={() => setSelectedOrder(order)}
+                          className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] hover:border-emerald-500/50 hover:bg-[#1c1f26] transition-all group flex flex-col sm:flex-row items-center gap-4 md:gap-6 shadow-lg relative overflow-hidden cursor-pointer"
+                        >
                           <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:scale-105 transition-transform shrink-0">
                             <MessageSquare className="text-emerald-500" size={24} />
                           </div>
@@ -301,9 +292,12 @@ export function DashboardContent({
                           <div className="flex-1 text-center sm:text-left w-full sm:w-auto">
                             <div className="flex flex-col sm:flex-row items-center gap-2 mb-3">
                               <p className="text-base md:text-lg font-black text-white line-clamp-1">{order.cliente_nome}</p>
-                              <span className="text-[8px] md:text-[9px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-black uppercase border border-emerald-500/20 shrink-0">
-                                IA AUDIO ANALYZED
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <StatusBadge status={order.status} />
+                                <span className="text-[8px] md:text-[9px] px-2 py-0.5 rounded-md bg-emerald-500/5 text-emerald-400 font-black uppercase border border-emerald-500/10 shrink-0">
+                                  Zeca-IA
+                                </span>
+                              </div>
                             </div>
                             
                             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 md:gap-4">
@@ -322,11 +316,9 @@ export function DashboardContent({
 
                           <div className="flex items-center gap-2 w-full sm:w-auto z-10 justify-center sm:justify-start">
                             <button 
-                              onClick={() => handleValidate(order.id)}
-                              disabled={isValidating === order.id}
-                              className="flex-1 sm:flex-none bg-emerald-500 text-[#0F1115] font-black px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/10 uppercase tracking-widest active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="flex-1 sm:flex-none bg-emerald-500 text-[#0F1115] font-black px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/10 uppercase tracking-widest active:scale-95"
                             >
-                              {isValidating === order.id ? "..." : "Validar"}
+                              Validar
                             </button>
                             <button className="p-3.5 md:p-4 bg-white/5 hover:bg-white/10 text-white rounded-xl md:rounded-2xl transition-all border border-white/5">
                               <ChevronRight size={18} />
@@ -395,7 +387,11 @@ export function DashboardContent({
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
               {inactiveClients.map((client) => (
-                <div key={client.id} className="bg-white/[0.02] border border-white/5 p-5 rounded-[1.5rem] group hover:border-amber-500/30 transition-all flex flex-col h-full shadow-lg">
+                <Link 
+                  key={client.id} 
+                  href={`/dashboard/clientes/${client.id}`}
+                  className="bg-white/[0.02] border border-white/5 p-5 rounded-[1.5rem] group hover:border-amber-500/30 transition-all flex flex-col h-full shadow-lg"
+                >
                   <div className="flex justify-between items-start mb-4 gap-2">
                     <div className="flex-1">
                       <p className="text-sm font-black text-white line-clamp-1">{client.nome}</p>
@@ -408,9 +404,9 @@ export function DashboardContent({
                     </div>
                   </div>
                   <button className="w-full mt-auto bg-white/5 text-white hover:bg-white/10 text-[10px] font-black py-3 rounded-xl transition-all uppercase tracking-[0.15em] border border-white/5">
-                    Chamar no Whats
+                    Ver Perfil
                   </button>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -440,6 +436,15 @@ export function DashboardContent({
           </div>
         </aside>
       </div>
+
+      {/* Global Order Details Modal */}
+      {selectedOrder && (
+        <OrderDetailsModal 
+          pedido={selectedOrder}
+          isOpen={!!selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
     </div>
   );
 }
